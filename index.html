@@ -472,7 +472,7 @@ document.getElementById("clr").onclick=()=>{qEl.value="";F.from="";F.to="";syncI
 F.q=(P.get("q")||"").trim();F.from=okDate(P.get("from"));F.to=okDate(P.get("to"));
 qEl.value=F.q;QT=low(F.q).split(/\s+/).filter(Boolean);syncInputs();
 // Every setting lives in the page address, so a bookmark or a shared link opens this exact view.
-const SITE="https://natecrowders.github.io/crowders-calendar/";
+const SITE="https://crowders-camps.github.io/crowders-calendar/";
 function viewParams(){
   const s=[];s.push("view="+view);
   if(MASTER&&on.size<SHOW.length)s.push("camp="+SHOW.filter(c=>on.has(c)).join(","));
