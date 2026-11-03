@@ -9,3 +9,5 @@ Link settings (also work in the embed): `?camp=ridge` (or `smcc`, `springs`, com
 Detail keys: arr (arrival & departure), meal, prog (program), act (activities), space (meeting spaces), lodge, rent (rentals), pkg (package).
 
 Live address: https://crowders-camps.github.io/crowders-calendar/ (moved from natecrowders.github.io on 2026-11-02).
+
+Meals: when Event details shows Meals, each Breakfast, Lunch and Dinner gets a one-line "Menu:" summary read live from the Kitchen Prep Builder (its public relay feed, the same one the guest menu uses). Nothing from the prep tool is stored here; a meal with no menu posted for that date and camp simply shows no summary.

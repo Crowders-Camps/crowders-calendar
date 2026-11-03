@@ -127,6 +127,7 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .it{display:block;font-size:11px;line-height:1.3;font-weight:400;overflow-wrap:anywhere}
 .it u{text-decoration:none;font-weight:700;font-variant-numeric:tabular-nums;margin-right:4px;white-space:nowrap}
 .it small{display:block;font-size:10.5px;opacity:.8}
+.it small.mnu{font-style:italic}
 .it.pend{font-style:italic}
 .it em{font-style:normal;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-500);margin-left:6px}
 .ev.cl{border-top-left-radius:0;border-bottom-left-radius:0;margin-left:0}
@@ -296,7 +297,7 @@ const isSpan=i=>!!i.x||!i.t||i.t==="00:00";
 const F={q:"",from:"",to:""};
 let QT=[];
 const low=s=>String(s||"").toLowerCase();
-const itemText=i=>low(i.n+" "+(i.o||"")+" "+(GL[i.g]||""));
+const itemText=i=>low(i.n+" "+(i.o||"")+" "+(i.m||"")+" "+(GL[i.g]||""));
 const itemHit=i=>QT.length&&QT.some(w=>itemText(i).includes(w));
 const icl=i=>"it"+(i.p?" pend":"")+(itemHit(i)?" hit":"");
 const shown=e=>det.size||QT.length?e.items.filter(i=>det.has(i.g)||itemHit(i)):[];
@@ -307,7 +308,7 @@ function spanLine(e,a,notes){return uniq(a.map(i=>esc(i.n||(notes?"":i.o||""))+(
 function sched(e,its,label){
   const sp=its.filter(isSpan),dl=its.filter(i=>!isSpan(i));let h=`<div class="lsched">`;
   GROUPS.forEach(([k,l])=>{const a=sp.filter(i=>i.g===k);if(a.length)h+=`<div class="dy"><b>${l}</b><div><span class="it">${spanLine(e,a,true)}</span></div></div>`});
-  uniq(dl.map(i=>i.d)).sort().forEach(d=>{h+=`<div class="dy"><b>${DOW[D(d).getDay()]} ${md(D(d))}</b><div>${dl.filter(i=>i.d===d).map(i=>`<span class="${icl(i)}"><u>${tr(i)}</u>${esc(i.n)}${i.c?" · "+i.c:""}${label?`<em>${GL[i.g]}</em>`:""}${i.p?" (pending)":""}${i.o?`<small>${esc(i.o)}</small>`:""}</span>`).join("")}</div></div>`});
+  uniq(dl.map(i=>i.d)).sort().forEach(d=>{h+=`<div class="dy"><b>${DOW[D(d).getDay()]} ${md(D(d))}</b><div>${dl.filter(i=>i.d===d).map(i=>`<span class="${icl(i)}"><u>${tr(i)}</u>${esc(i.n)}${i.c?" · "+i.c:""}${label?`<em>${GL[i.g]}</em>`:""}${i.p?" (pending)":""}${i.o?`<small>${esc(i.o)}</small>`:""}${i.m?`<small class="mnu">${esc(i.m)}</small>`:""}</span>`).join("")}</div></div>`});
   return h+"</div>";
 }
 
@@ -360,7 +361,7 @@ function renderCal(){
           const sp=s.cl?[]:its.filter(isSpan);
           GROUPS.forEach(([k,l])=>{const a=sp.filter(i=>i.g===k);if(a.length)x+=`<span class="sp"><b>${l}:</b> ${spanLine(s.e,a,false)}</span>`});
           let cols="";
-          for(let k=s.c0;k<s.c1;k++){const dk=key(add(ws,k-1));cols+=`<span class="day">${its.filter(i=>!isSpan(i)&&i.d===dk).map(i=>`<span class="${icl(i)}"><u>${tm(i.t)}</u>${esc(i.n)}${i.o?`<small>${esc(i.o)}</small>`:""}</span>`).join("")}</span>`}
+          for(let k=s.c0;k<s.c1;k++){const dk=key(add(ws,k-1));cols+=`<span class="day">${its.filter(i=>!isSpan(i)&&i.d===dk).map(i=>`<span class="${icl(i)}"><u>${tm(i.t)}</u>${esc(i.n)}${i.o?`<small>${esc(i.o)}</small>`:""}${i.m?`<small class="mnu">${esc(i.m)}</small>`:""}</span>`).join("")}</span>`}
           x+=`<span class="its" style="grid-template-columns:repeat(${s.c1-s.c0},minmax(0,1fr))">${cols}</span>`;
         }
         return `<button class="ev ${s.e.camp} ${s.e.status==="P"?"P":""} ${s.cl?"cl":""} ${s.cr?"cr":""} ${x?"x":""}" style="grid-column:${s.c0}/${s.c1};grid-row:${s.lane}" data-id="${s.e.id}" title="${esc(s.e.title+" · "+s.e.sub+" · "+range(s.e))}"><span class="h"><b>${esc(s.e.title)}</b><span>${esc(s.e.sub)}</span></span>${x}</button>`;
@@ -515,6 +516,50 @@ function openHelp(){
 }
 document.getElementById("save").onclick=e=>{clickY=e.pageY;openHelp()};
 renderLegend();setView(view);detChanged();
+
+// Meals: read what is being served from the Kitchen Prep Builder's live version (its public relay feed,
+// the same one the guest menu uses) and add a one-line summary under each Breakfast/Lunch/Dinner.
+// Nothing is copied into this calendar's data; if the feed can't be reached the calendar shows as before.
+(function(){
+  const SRC="https://kitchen-prep.nate-5ff.workers.dev/public";
+  const DAYS=["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"];
+  const OLD=/^(MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY) (BREAKFAST|LUNCH|DINNER)$/;
+  const CODE={ridge:"RIDGE",springs:"SPRINGS",smcc:"SM"};
+  const KEEP=new Set(["GF","BBQ","BLT","PB&J","PBJ","OJ","DF","USA"]);
+  // Sides and condiments left out of the one-line summary (they still show on the prep sheet and guest menu).
+  const MINOR=/\b(SAUCES?|SYRUP|KETCHUP|MAYO|MUSTARD|RANCH|DRESSING|FROSTING|BUTTER|CUPS?|PACKETS?|SALSA|RELISH|SOUR CREAM|LETTUCE|SLICED|SHREDDED|CONDIMENTS?)\b/;
+  const nice=n=>String(n||"").replace(/^\([A-Z]+\)\s*/,"").trim().split(/(\s+|\/|-)/).map(w=>{const u=w.toUpperCase();if(KEEP.has(u))return u;if(!/[A-Za-z]/.test(w))return w;if(/^(AND|OR|OF|WITH|ON|IN)$/.test(u))return w.toLowerCase();return w.charAt(0)+w.slice(1).toLowerCase()}).join("").replace(/^./,c=>c.toUpperCase());
+  const monday=s=>{const d=D(s);return key(add(d,-((d.getDay()+6)%7)))};
+  function summarize(lines,cat){
+    const name=l=>{const it=l.ref!=null?cat.get(l.ref):null;return(it&&it.name)||l.name||""};
+    const all=lines.filter(l=>!l.gf).map(name).filter(Boolean);
+    let main=all.filter(n=>!MINOR.test(n.toUpperCase()));if(!main.length)main=all;
+    const first=uniq(main.map(nice)).slice(0,3),more=main.length-first.length;
+    if(!first.length)return"";
+    return"Menu: "+first.join(", ")+(more>0?" + "+more+" more":"")+(lines.some(l=>l.gf)?" · GF option":"");
+  }
+  async function load(){
+    try{
+      const r=await fetch(SRC+"?t="+Math.floor(Date.now()/60000),{cache:"no-store"});
+      if(!r.ok)return;
+      const st=((await r.json())||{}).state;if(!st||!st.menus)return;
+      const wk=monday(st.week||key(new Date()));
+      const norm=o=>{const n={};Object.keys(o||{}).forEach(k=>{const m=k.match(OLD);n[m?key(add(D(wk),DAYS.indexOf(m[1])))+" "+m[2]:k]=o[k]});return n};
+      const menus=norm(st.menus),off=norm(st.off),serve=norm(st.serve);
+      const cat=new Map((st.catalog||[]).map(it=>[it.id,it]));
+      let changed=false;
+      EVENTS.forEach(e=>{let hit=false;e.items.forEach(i=>{
+        if(i.g!=="meal")return;
+        const k=i.d+" "+String(i.n||"").trim().toUpperCase(),lines=menus[k]||[],sv=serve[k]||"BOTH";
+        const camps=sv==="BOTH"?["RIDGE","SPRINGS"]:[sv];
+        const m=lines.length&&!off[k]&&camps.includes(CODE[e.camp])?summarize(lines,cat):"";
+        if((i.m||"")!==m){i.m=m||undefined;hit=true}
+      });if(hit){changed=true;e.hay=low([e.title,e.sub,CAMPS[e.camp].name,CAMPS[e.camp].short,STATUS[e.status]].concat(e.groups.map(g=>g.name+" "+g.event)).join(" ")+" "+e.items.map(itemText).join(" "))}});
+      if(changed){renderCal();renderList()}
+    }catch(_){}
+  }
+  load();setInterval(()=>{if(!document.hidden)load()},300000);
+})();
 </script>
 
 </body>
