@@ -222,6 +222,15 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
   .num{font-size:9.5px;padding:5px 6px 2px}
 }
 
+
+/* staff name bar: tap a name to see only that person's shifts */
+.who{position:relative;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.who>b{font:700 12px/1 var(--font);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-500);margin-right:4px}
+.who button{font:600 14px/1 var(--font);padding:8px 14px;border-radius:999px;border:1.5px solid var(--ink-150);background:var(--white);color:var(--ink);cursor:pointer;white-space:nowrap}
+.who button:hover{border-color:var(--ink-500)}
+.who button[aria-pressed="true"]{background:var(--ink);color:var(--white);border-color:var(--ink)}
+@media (max-width:560px){.who{flex-wrap:nowrap;overflow-x:auto;margin:0 -16px;padding:2px 16px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}.who::-webkit-scrollbar{display:none}.who>b{flex:none}}
+@media print{.who{display:none!important}}
 </style>
 
 <div class="wrap">
@@ -245,6 +254,8 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
     </div>
     <div class="legend" id="legend"></div>
   </div>
+
+  <div class="who" id="who" role="group" aria-label="Show one staff member's shifts"></div>
 
   <div class="filters" role="search">
     <label class="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="q" type="search" placeholder="Search events, activities or staff" aria-label="Search events, activities or staff" autocomplete="off" enterkeyhint="search"></label>
@@ -288,6 +299,7 @@ const GL=Object.fromEntries(GROUPS);
 const P=new URLSearchParams(location.search);
 const det=new Set();
 {let v=P.get("details");if(v==null)try{v=localStorage.getItem("details")}catch(_){}
+ if(v==null)v="meal,act,ops,prog";
  (v||"").split(",").forEach(k=>{if(GL[k])det.add(k)})}
 {const c=(P.get("camp")||"").split(",").filter(c=>SHOW.includes(c));if(c.length){on.clear();c.forEach(x=>on.add(x))}}
 const tm=s=>{if(!s)return"";let[h,m]=s.split(":").map(Number);const ap=h<12?"am":"pm";h=h%12||12;return h+(m?":"+String(m).padStart(2,"0"):"")+ap};
@@ -295,12 +307,19 @@ const tr=i=>i.t?tm(i.t)+(i.e&&i.e!==i.t?"–"+tm(i.e):""):"";
 const isSpan=i=>!!i.x||!i.t||i.t==="00:00";
 // Search and date range: F.q is the search text, F.from/F.to are YYYY-MM-DD or "".
 const F={q:"",from:"",to:""};
+// Staff name bar. Spellings follow the Summer Staff Language doc. Names match as whole words in
+// item notes and staff contacts, so "Eli" never matches "Deli".
+const NAMES=["Eli","Paetyn","Cole","Abi","Zach","London","Justin B","Kayla","Evan","Noah O","Kaleb S.","Lillie","Maddie","Morgan","Mek","Sierra","Christine","Payton W"];
+let WHO="",WHO_RE=null;
+function setWho(n){WHO=NAMES.includes(n)?n:"";WHO_RE=WHO?new RegExp("(?<![\\p{L}\\p{N}])"+WHO.replace(/\.$/,"").replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/ /g,"\\s+")+"(?![\\p{L}\\p{N}])","u"):null}
+setWho(P.get("who")||"");
+const whoHit=i=>!!WHO_RE&&(WHO_RE.test(i.o||"")||(i.g==="poc"&&WHO_RE.test(i.n||"")));
 let QT=[];
 const low=s=>String(s||"").toLowerCase();
 const itemText=i=>low(i.n+" "+(i.o||"")+" "+(i.m||"")+" "+(GL[i.g]||""));
-const itemHit=i=>QT.length&&QT.some(w=>itemText(i).includes(w));
+const itemHit=i=>(QT.length&&QT.some(w=>itemText(i).includes(w)))||whoHit(i);
 const icl=i=>"it"+(i.p?" pend":"")+(itemHit(i)?" hit":"");
-const shown=e=>det.size||QT.length?e.items.filter(i=>det.has(i.g)||itemHit(i)):[];
+const shown=e=>det.size||QT.length||WHO_RE?e.items.filter(i=>det.has(i.g)||itemHit(i)):[];
 // Everything searchable about an event, lower-cased once.
 EVENTS.forEach(e=>e.hay=low([e.title,e.sub,CAMPS[e.camp].name,CAMPS[e.camp].short,STATUS[e.status]].concat(e.groups.map(g=>g.name+" "+g.event)).join(" ")+" "+e.items.map(itemText).join(" ")));
 const uniq=a=>[...new Set(a)];
@@ -312,7 +331,7 @@ function sched(e,its,label){
   return h+"</div>";
 }
 
-function visible(){const[a,b]=bounds();return EVENTS.filter(e=>SHOW.includes(e.camp)&&on.has(e.camp)&&D(e.end)>=a&&D(e.start)<=b&&QT.every(w=>e.hay.includes(w)))}
+function visible(){const[a,b]=bounds();return EVENTS.filter(e=>SHOW.includes(e.camp)&&on.has(e.camp)&&D(e.end)>=a&&D(e.start)<=b&&QT.every(w=>e.hay.includes(w))&&(!WHO_RE||e.items.some(whoHit)))}
 function bounds(){let[a,b]=spanDays();if(F.from&&D(F.from)>a)a=D(F.from);if(F.to&&D(F.to)<b)b=D(F.to);return[a,b]}
 function monthsSpan(){
   const[a,b]=bounds();
@@ -340,7 +359,7 @@ function renderCal(){
   monthsSpan().forEach(m0=>{
     const mEnd=new Date(m0.getFullYear(),m0.getMonth()+1,0);
     const n=ev.filter(e=>D(e.start)<=mEnd&&D(e.end)>=m0).length;
-    if(!n&&QT.length)return;
+    if(!n&&(QT.length||WHO_RE))return;
     h+=`<section class="month"><h2>${MONTHS[m0.getMonth()]} ${m0.getFullYear()}<small>${n} ${n===1?"event":"events"}</small></h2><div class="scroll"><div class="grid"><div class="dow">${DOW.map(d=>`<div>${d}</div>`).join("")}</div>`;
     let ws=add(m0,-m0.getDay());
     const [fa,fb]=bounds();
@@ -418,7 +437,7 @@ function detChanged(){
 pop.innerHTML=`<div class="pa"><button data-a="all">Show all</button><button data-a="none">Hide all</button></div>`+GROUPS.map(([k,l])=>`<label><input type="checkbox" value="${k}">${l}</label>`).join("");
 pop.addEventListener("change",e=>{e.target.checked?det.add(e.target.value):det.delete(e.target.value);detChanged()});
 pop.querySelectorAll(".pa button").forEach(b=>b.onclick=()=>{det.clear();if(b.dataset.a==="all")GROUPS.forEach(g=>det.add(g[0]));detChanged()});
-function renderInfo(){document.getElementById("pinfo").textContent=`Camps: ${SHOW.filter(c=>on.has(c)).map(c=>CAMPS[c].short).join(", ")} · Details: ${det.size?GROUPS.filter(g=>det.has(g[0])).map(g=>g[1]).join(", "):"none"} ${F.from||F.to?` · Dates: ${F.from?md(D(F.from))+"/"+D(F.from).getFullYear():"start"} – ${F.to?md(D(F.to))+"/"+D(F.to).getFullYear():"end"}`:""}${F.q?` · Search: \u201c${F.q}\u201d`:""} · Printed ${new Date().toLocaleDateString()}`}
+function renderInfo(){document.getElementById("pinfo").textContent=`Camps: ${SHOW.filter(c=>on.has(c)).map(c=>CAMPS[c].short).join(", ")} · Details: ${det.size?GROUPS.filter(g=>det.has(g[0])).map(g=>g[1]).join(", "):"none"} ${F.from||F.to?` · Dates: ${F.from?md(D(F.from))+"/"+D(F.from).getFullYear():"start"} – ${F.to?md(D(F.to))+"/"+D(F.to).getFullYear():"end"}`:""}${WHO?` · Staff: ${WHO}`:""}${F.q?` · Search: \u201c${F.q}\u201d`:""} · Printed ${new Date().toLocaleDateString()}`}
 document.getElementById("pdf").onclick=()=>{showPop(false);document.getElementById("detail").hidden=true;window.print()};
 // When embedded in a website, tell the host page how tall the calendar is (see embed.html).
 if(EMBED&&window.ResizeObserver){const post=()=>parent.postMessage({type:"crowders-calendar-height",height:document.documentElement.scrollHeight},"*");new ResizeObserver(post).observe(document.body)}
@@ -432,9 +451,9 @@ document.getElementById("v-list").onclick=()=>setView("list");
 function renderAll(){renderLegend();renderCal();renderList();renderInfo();syncURL()}
 function emptyMsg(){return `<div class="empty"><b>No events found</b>Try a different search or a wider date range.</div>`}
 function renderCount(n){
-  const c=document.getElementById("count"),act=!!(F.q||F.from||F.to);
+  const c=document.getElementById("count"),act=!!(F.q||F.from||F.to||WHO);
   c.hidden=!act;document.getElementById("clr").hidden=!act;
-  if(act)c.innerHTML=`Showing <b>${n}</b> ${n===1?"event":"events"}${F.q?` matching \u201c${esc(F.q)}\u201d`:""}${F.from||F.to?` between ${F.from?md(D(F.from))+"/"+D(F.from).getFullYear():"the start"} and ${F.to?md(D(F.to))+"/"+D(F.to).getFullYear():"the end"}`:""}`;
+  if(act)c.innerHTML=`Showing <b>${n}</b> ${n===1?"event":"events"}${WHO?` with <b>${esc(WHO)}</b>\u2019s shifts`:""}${F.q?` matching \u201c${esc(F.q)}\u201d`:""}${F.from||F.to?` between ${F.from?md(D(F.from))+"/"+D(F.from).getFullYear():"the start"} and ${F.to?md(D(F.to))+"/"+D(F.to).getFullYear():"the end"}`:""}`;
 }
 let qTimer;
 const qEl=document.getElementById("q"),fEl=document.getElementById("from"),tEl=document.getElementById("to"),rEl=document.getElementById("qr");
@@ -469,7 +488,7 @@ qEl.addEventListener("input",()=>{clearTimeout(qTimer);qTimer=setTimeout(applyFi
 rEl.onchange=()=>{if(rEl.value==="custom")return;const[f,t]=(rEl.value||"|").split("|");F.from=f;F.to=t;syncInputs();applyFilters()};
 const dateChanged=()=>{F.from=okDate(fEl.value);F.to=okDate(tEl.value);if(F.from&&F.to&&F.to<F.from){[F.from,F.to]=[F.to,F.from]}syncInputs();applyFilters()};
 fEl.onchange=dateChanged;tEl.onchange=dateChanged;
-document.getElementById("clr").onclick=()=>{qEl.value="";F.from="";F.to="";syncInputs();applyFilters();qEl.focus()};
+document.getElementById("clr").onclick=()=>{setWho("");renderWho();qEl.value="";F.from="";F.to="";syncInputs();applyFilters();qEl.focus()};
 F.q=(P.get("q")||"").trim();F.from=okDate(P.get("from"));F.to=okDate(P.get("to"));
 qEl.value=F.q;QT=low(F.q).split(/\s+/).filter(Boolean);syncInputs();
 // Every setting lives in the page address, so a bookmark or a shared link opens this exact view.
@@ -478,6 +497,7 @@ function viewParams(){
   const s=[];s.push("view="+view);
   if(MASTER&&on.size<SHOW.length)s.push("camp="+SHOW.filter(c=>on.has(c)).join(","));
   if(det.size)s.push("details="+GROUPS.map(g=>g[0]).filter(k=>det.has(k)).join(","));
+  if(WHO)s.push("who="+encodeURIComponent(WHO).replace(/%20/g,"+"));
   if(F.q)s.push("q="+encodeURIComponent(F.q).replace(/%20/g,"+"));
   if(F.from)s.push("from="+F.from);if(F.to)s.push("to="+F.to);
   return s.join("&");
@@ -500,6 +520,7 @@ function openHelp(){
    <table><thead><tr><th>To show</th><th>Add</th></tr></thead><tbody>
    ${MASTER?ex("camp=ridge","Only Crowders Ridge")+ex("camp=smcc","Only South Mountain")+ex("camp=springs","Only Crowders Springs")+ex("camp=ridge,springs","Two camps"):""}
    ${ex("view=list","The List view")}${ex("view=cal","The Calendar view")}
+   ${ex("who=Paetyn","One staff member's shifts (use + for spaces, like who=Justin+B)")}
    ${ex("q=Paetyn","A search (use + for spaces, like q=giant+swing)")}
    ${ex("from=2027-06-01&amp;to=2027-08-31","Dates (year-month-day)")}
    ${ex("details=meal,act","Event details, separated by commas")}
@@ -515,6 +536,13 @@ function openHelp(){
   document.getElementById("x").onclick=()=>el.hidden=true;hc.focus({preventScroll:EMBED});
 }
 document.getElementById("save").onclick=e=>{clickY=e.pageY;openHelp()};
+function renderWho(){
+  const W=document.getElementById("who");
+  W.innerHTML=`<b>Staff</b><button type="button" data-n="" aria-pressed="${!WHO}">Everyone</button>`+NAMES.map(n=>`<button type="button" data-n="${esc(n)}" aria-pressed="${WHO===n}">${esc(n)}</button>`).join("");
+  const on=W.querySelector('[aria-pressed="true"]');if(on&&W.scrollWidth>W.clientWidth)W.scrollLeft=on.offsetLeft-(W.clientWidth-on.offsetWidth)/2;
+}
+document.getElementById("who").onclick=e=>{const b=e.target.closest("button");if(!b)return;setWho(b.dataset.n);renderWho();applyFilters()};
+renderWho();
 renderLegend();setView(view);detChanged();
 
 // Meals: read what is being served from the Kitchen Prep Builder's live version (its public relay feed,
