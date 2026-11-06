@@ -1,5 +1,9 @@
 # Calendar publisher: one-time setup (Nate)
 
+**Done 2026-11-06.** Worker `calendar-publisher` at `https://calendar-publisher.nate-5ff.workers.dev`; keys in 1Password
+(service account it@crowderscamps.com) and Cloudflare; publish key on the shared **Crowders Camps calendar**
+Claude environment. Keep this page for replacing keys or rebuilding the setup.
+
 The publisher is a small Cloudflare Worker that lets any Crowders Camps Claude session put a new calendar
 page on the website without GitHub access. It holds a GitHub token that can only write to this repo, and
 it only ever writes `index.html`, after re-checking the page for private content (`tools/forbidden.json`).
