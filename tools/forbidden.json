@@ -1,0 +1,9 @@
+[
+  ["connector call", "\\bwatchTool\\b|\\bcallTool\\b|use\\?\\.\\(\\s*[\"']mcp[\"']"],
+  ["Google Sheet link or ID", "docs\\.google\\.com|spreadsheets/d/|spreadsheetId|\\b1[A-Za-z0-9_-]{40,}\\b"],
+  ["Google Calendar ID", "calendarId|calendar\\.google\\.com|@group\\.calendar"],
+  ["email address", "[\\w.+-]+@[\\w-]+\\.(?:com|org|net|edu|gov|us|io)\\b"],
+  ["phone number", "\\(?\\b\\d{3}\\)?[\\s.-]\\d{3}[\\s.-]\\d{4}\\b"],
+  ["financial wording", "\\b(revenue|balance due|amount due|deposit paid|payment|invoice)\\b"],
+  ["leftover private marker", "@private|@/private|@public"]
+]

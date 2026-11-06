@@ -1,0 +1,10 @@
+name = "calendar-publisher"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[vars]
+REPO = "Crowders-Camps/crowders-calendar"
+BRANCH = "main"
+
+# Secrets, set once with:  npx wrangler secret put PUBLISH_KEY   and   npx wrangler secret put GITHUB_TOKEN

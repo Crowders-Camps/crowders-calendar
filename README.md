@@ -13,3 +13,11 @@ Detail keys: arr (arrival & departure), meal, prog (program), act (activities), 
 Live address: https://crowders-camps.github.io/crowders-calendar/ (moved from natecrowders.github.io on 2026-11-02).
 
 Meals: when Event details shows Meals, each Breakfast, Lunch and Dinner gets a one-line "Menu:" summary read live from the Kitchen Prep Builder (its public relay feed, the same one the guest menu uses). Nothing from the prep tool is stored here; a meal with no menu posted for that date and camp simply shows no summary.
+
+## Page changes from the Master Calendar (added 2026-11-05)
+
+The page (`index.html`) is built from the Crowders Camps Master Calendar artifact by `tools/sync_page.py`,
+only when someone asks Claude to push changes live. Private parts of the artifact (marked `@private`) are
+left out, and the result is checked against `tools/forbidden.json` before it can be published. Team members
+without GitHub access publish through the calendar publisher in `publisher/`. Steps: `tools/SYNC.md`.
+`data.js` is still replaced only by the daily build.
