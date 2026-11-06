@@ -1,0 +1,5 @@
+# Local Wrangler files. Keys never belong in this repo; these keep a stray local secrets file from being committed.
+.dev.vars*
+.env*
+.wrangler/
+node_modules/

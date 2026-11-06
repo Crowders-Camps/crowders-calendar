@@ -23,20 +23,33 @@ GitHub → Settings → Developer settings → Fine-grained personal access toke
 Any long random string. On a Mac: `openssl rand -hex 32` in Terminal. Keep it in your password manager
 until steps 3 and 4 are done.
 
-## 3. Deploy the Worker
+## 3. Deploy the Worker and store the keys in Cloudflare
 
-On your computer, in a copy of this repo (or ask Claude Code to do it with you):
+The keys never go into this repo or any file. `wrangler secret put` asks for the value at a hidden
+prompt and sends it straight to Cloudflare, where it's stored encrypted and attached to the Worker. After
+that you can't read it back, even in the Cloudflare dashboard; you can only replace or delete it. This repo
+is public, so the only things here are the Worker's code and two harmless settings (`REPO`, `BRANCH`).
+
+You need a copy of this repo's code on your computer only so Wrangler has something to deploy. Run these
+in the `publisher` folder (or ask Claude Code on your computer to run them with you):
 
 ```
-cd publisher
 npx wrangler login
 npx wrangler deploy
-npx wrangler secret put GITHUB_TOKEN     # paste the token from step 1
-npx wrangler secret put PUBLISH_KEY      # paste the key from step 2
+npx wrangler secret put GITHUB_TOKEN     # paste the token from step 1 at the prompt, then Enter
+npx wrangler secret put PUBLISH_KEY      # paste the key from step 2 at the prompt, then Enter
 ```
 
+Paste only at the prompt Wrangler shows. Never:
+- type a key on the command line itself (it lands in your shell history),
+- put a key in `wrangler.toml`, `.dev.vars`, `.env` or any other file in the repo,
+- paste a key into a Claude chat, project doc or Slack message.
+
+If you keep the keys in 1Password, you can skip the clipboard:
+`op read "op://<vault>/<item>/credential" | npx wrangler secret put GITHUB_TOKEN`
+
 Note the address `deploy` prints, e.g. `https://calendar-publisher.nate-5ff.workers.dev`. If it isn't that
-one, change it in `../tools/SYNC.md` step 6.
+one, tell Claude so it can update `../tools/SYNC.md` step 6.
 
 ## 4. Share it with the team in Claude
 
